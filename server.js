@@ -20,7 +20,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona cardio",
-    image: "/images/treadmill.png",
+    image: "/images/cinta.png",
     reservedBy: null
   },
   {
@@ -31,7 +31,7 @@ let machines = [
     status: "occupied",
     remainingTime: 9,
     zone: "Zona cardio",
-    image: "/images/spin-bike.png",
+    image: "/images/bici.png",
     reservedBy: "Usuario demo"
   },
   {
@@ -42,7 +42,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona cardio",
-    image: "/images/elliptical.png",
+    image: "/images/eliptica.png",
     reservedBy: null
   },
   {
@@ -53,7 +53,7 @@ let machines = [
     status: "occupied",
     remainingTime: 6,
     zone: "Zona cardio",
-    image: "/images/rowing-machine.png",
+    image: "/images/remo.png",
     reservedBy: "Usuario demo"
   },
   {
@@ -64,7 +64,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona cardio",
-    image: "/images/stair-climber.png",
+    image: "/images/escalera.png",
     reservedBy: null
   },
   {
@@ -75,7 +75,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/chest-press.png",
+    image: "/images/press.jpeg",
     reservedBy: null
   },
   {
@@ -86,7 +86,7 @@ let machines = [
     status: "occupied",
     remainingTime: 12,
     zone: "Zona fuerza superior",
-    image: "/images/lat-pulldown.png",
+    image: "/images/jalon_pecho.gif",
     reservedBy: "Usuario demo"
   },
   {
@@ -97,7 +97,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/seated-row.png",
+    image: "/images/remo_sentado.jpg",
     reservedBy: null
   },
   {
@@ -108,7 +108,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/shoulder-press.png",
+    image: "/images/press_hombro.jpg",
     reservedBy: null
   },
   {
@@ -119,7 +119,7 @@ let machines = [
     status: "occupied",
     remainingTime: 15,
     zone: "Zona fuerza superior",
-    image: "/images/pec-deck.png",
+    image: "/images/peck.jpg",
     reservedBy: "Usuario demo"
   },
   {
@@ -130,7 +130,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/biceps-machine.png",
+    image: "/images/curl_biceps.gifg",
     reservedBy: null
   },
   {
@@ -141,7 +141,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/triceps-machine.png",
+    image: "/images/triceps.png",
     reservedBy: null
   },
   {
@@ -152,7 +152,7 @@ let machines = [
     status: "occupied",
     remainingTime: 10,
     zone: "Zona pierna",
-    image: "/images/leg-press.png",
+    image: "/images/prensa_pierna.jpg",
     reservedBy: "Usuario demo"
   },
   {
@@ -163,7 +163,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona pierna",
-    image: "/images/leg-extension.png",
+    image: "/images/extension_cuadriceps.jpeg",
     reservedBy: null
   },
   {
@@ -174,7 +174,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona pierna",
-    image: "/images/leg-curl.png",
+    image: "/images/femoral.jpeg",
     reservedBy: null
   },
   {
@@ -185,7 +185,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona pierna",
-    image: "/images/abductor-machine.png",
+    image: "/images/abductor_m.gif",
     reservedBy: null
   },
   {
@@ -196,7 +196,7 @@ let machines = [
     status: "occupied",
     remainingTime: 8,
     zone: "Zona pierna",
-    image: "/images/adductor-machine.png",
+    image: "/images/aductor.gif",
     reservedBy: "Usuario demo"
   },
   {
@@ -207,7 +207,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona glúteo",
-    image: "/images/hip-thrust-machine.png",
+    image: "/images/hip-thrust.png",
     reservedBy: null
   },
   {
@@ -218,7 +218,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona pierna",
-    image: "/images/calf-raise-machine.png",
+    image: "/images/gemelos.jpeg",
     reservedBy: null
   },
   {
@@ -229,7 +229,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona core",
-    image: "/images/abdominal-machine.png",
+    image: "/images/abdominales.jpg",
     reservedBy: null
   }
 ];
