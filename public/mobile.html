@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control móvil</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="app-shell mobile-shell">
+  <header class="page-header hero-header mobile-header">
+    <div>
+      <p class="eyebrow">Mobile Control</p>
+      <h1>Reserva tu máquina</h1>
+      <p class="header-subtitle">Selecciona una máquina, revisa su estado y confirma la reserva.</p>
+    </div>
+    <div class="header-login" id="header-login">
+      <input id="username-input" placeholder="Tu nombre">
+      <button id="login-btn">Entrar</button>
+    </div>
+
+    <div class="header-user hidden" id="header-user">
+      <span id="username-display"></span>
+      <button id="logout-btn" class="logout-btn">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <section class="filter-section filter-card">
+      <div class="filter-group">
+        <label for="filter">Filtrar por categoría</label>
+        <select id="filter">
+          <option value="all">Todas</option>
+          <option value="Cardio">Cardio</option>
+          <option value="Tren superior">Tren superior</option>
+          <option value="Core">Core</option>
+          <option value="Tren inferior">Tren inferior</option>
+        </select>
+      </div>
+    </section>
+
+    <section>
+      <div id="feedback-message" class="feedback-message hidden"></div>
+      <div id="mobile-machines-container" class="machines-list"></div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/mobile.js"></script>
+</body>
+</html>

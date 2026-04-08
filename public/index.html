@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gym Screen</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="app-shell">
+  <header class="page-header hero-header">
+    <div>
+      <p class="eyebrow">Gym Live View</p>
+      <h1>Pantalla del gimnasio</h1>
+      <p class="header-subtitle">Consulta máquinas, disponibilidad y tiempo restante en tiempo real.</p>
+    </div>
+    <div class="header-badge">
+      <span>En directo</span>
+    </div>
+  </header>
+
+  <main class="page-content">
+    <section class="stats-row">
+      <div class="stat-card">
+        <span class="stat-label">Total máquinas</span>
+        <strong id="total-machines">0</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Libres</span>
+        <strong id="free-machines">0</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Ocupadas</span>
+        <strong id="occupied-machines">0</strong>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">Estado de las máquinas</h2>
+      <div id="machines-container" class="machines-grid"></div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/gym.js"></script>
+</body>
+</html>
