@@ -533,3 +533,153 @@ button:disabled {
     width: 100%;
   }
 }
+/* ===== TRACKPAD PAGE ===== */
+
+.trackpad-body {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0f172a 0%, #18284e 100%);
+  color: white;
+  touch-action: none;
+}
+
+.trackpad-screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.trackpad-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 28px 22px;
+  pointer-events: none;
+}
+
+.trackpad-label {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+  opacity: 0.75;
+}
+
+.trackpad-overlay h1 {
+  margin: 0 0 12px;
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+.trackpad-instructions {
+  margin: 0;
+  max-width: 28rem;
+  line-height: 1.5;
+  opacity: 0.9;
+}
+
+.trackpad-dot {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #7aa2ff;
+  box-shadow: 0 0 0 8px rgba(122, 162, 255, 0.18);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.trackpad-dot.active {
+  opacity: 1;
+}
+
+/* ===== REMOTE CURSOR EN PANTALLA GYM ===== */
+
+#remote-cursor {
+  position: fixed;
+  left: 50vw;
+  top: 50vh;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+#remote-cursor.visible {
+  opacity: 1;
+}
+
+.remote-cursor-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: #ff4d6d;
+  box-shadow:
+    0 0 0 8px rgba(255, 77, 109, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.22);
+}
+.trackpad-hovered {
+  outline: 3px solid rgba(37, 99, 235, 0.5);
+  outline-offset: 2px;
+  transition: outline 0.12s ease;
+}
+
+.trackpad-tapped {
+  transform: scale(0.98);
+  transition: transform 0.12s ease;
+}
+/* ===== FILTROS PANTALLA GYM ===== */
+
+.gym-filter-card {
+  margin-bottom: 24px;
+}
+
+.gym-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* ===== CURSOR REMOTO ===== */
+
+#remote-cursor {
+  position: fixed;
+  left: 50vw;
+  top: 50vh;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+#remote-cursor.visible {
+  opacity: 1;
+}
+
+.remote-cursor-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: #ff4d6d;
+  box-shadow:
+    0 0 0 8px rgba(255, 77, 109, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+@media (max-width: 700px) {
+  .gym-filters-grid {
+    grid-template-columns: 1fr;
+  }
+}

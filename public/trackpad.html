@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Trackpad Gym</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="trackpad-body">
+  <div class="trackpad-screen" id="trackpad-screen">
+    <div class="trackpad-overlay">
+      <p class="trackpad-label">Touchpad remoto</p>
+      <h1>Navega la pantalla del gym</h1>
+      <p class="trackpad-instructions">
+        Desliza el dedo por toda la pantalla para mover el cursor en la pantalla principal.
+      </p>
+    </div>
+
+    <div class="trackpad-dot" id="trackpad-dot"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/trackpad.js"></script>
+</body>
+</html>

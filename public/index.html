@@ -11,7 +11,7 @@
     <div>
       <p class="eyebrow">Gym Live View</p>
       <h1>Pantalla del gimnasio</h1>
-      <p class="header-subtitle">Consulta máquinas, disponibilidad y tiempo restante en tiempo real.</p>
+      <p class="header-subtitle">Consulta máquinas, disponibilidad, tiempo restante y filtros en tiempo real.</p>
     </div>
     <div class="header-badge">
       <span>En directo</span>
@@ -31,6 +31,30 @@
       <div class="stat-card">
         <span class="stat-label">Ocupadas</span>
         <strong id="occupied-machines">0</strong>
+      </div>
+    </section>
+
+    <section class="filter-section filter-card gym-filter-card">
+      <div class="gym-filters-grid">
+        <div class="filter-group">
+          <label for="gym-category-filter">Filtrar por categoría</label>
+          <select id="gym-category-filter">
+            <option value="all">Todas</option>
+            <option value="Cardio">Cardio</option>
+            <option value="Tren superior">Tren superior</option>
+            <option value="Tren inferior">Tren inferior</option>
+            <option value="Core">Core</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="gym-status-filter">Filtrar por estado</label>
+          <select id="gym-status-filter">
+            <option value="all">Todas</option>
+            <option value="free">Solo libres</option>
+            <option value="occupied">Solo ocupadas</option>
+          </select>
+        </div>
       </div>
     </section>
 

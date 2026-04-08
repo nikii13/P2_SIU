@@ -9,12 +9,9 @@ const io = new Server(server);
 
 const PORT = 3000;
 
-// Usuarios logueados en memoria: socket.id -> username
 const users = {};
 
-// Estado inicial de las máquinas
 let machines = [
-  // CARDIO
   {
     id: 1,
     name: "Cinta 1",
@@ -23,7 +20,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona cardio",
-    image: "/images/cinta.png",
+    image: "/images/treadmill.png",
     reservedBy: null
   },
   {
@@ -34,7 +31,7 @@ let machines = [
     status: "occupied",
     remainingTime: 9,
     zone: "Zona cardio",
-    image: "/images/bici.png",
+    image: "/images/spin-bike.png",
     reservedBy: "Usuario demo"
   },
   {
@@ -45,7 +42,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona cardio",
-    image: "/images/eliptica.png",
+    image: "/images/elliptical.png",
     reservedBy: null
   },
   {
@@ -56,7 +53,7 @@ let machines = [
     status: "occupied",
     remainingTime: 6,
     zone: "Zona cardio",
-    image: "/images/remo.png",
+    image: "/images/rowing-machine.png",
     reservedBy: "Usuario demo"
   },
   {
@@ -67,11 +64,9 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona cardio",
-    image: "/images/escalera.png",
+    image: "/images/stair-climber.png",
     reservedBy: null
   },
-
-  // TREN SUPERIOR
   {
     id: 6,
     name: "Press de pecho 1",
@@ -80,7 +75,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/press.jpeg",
+    image: "/images/chest-press.png",
     reservedBy: null
   },
   {
@@ -91,7 +86,7 @@ let machines = [
     status: "occupied",
     remainingTime: 12,
     zone: "Zona fuerza superior",
-    image: "/images/jalon_pecho.gif",
+    image: "/images/lat-pulldown.png",
     reservedBy: "Usuario demo"
   },
   {
@@ -102,7 +97,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/remo_sentado.jpg",
+    image: "/images/seated-row.png",
     reservedBy: null
   },
   {
@@ -113,7 +108,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/press_hombro.jpg",
+    image: "/images/shoulder-press.png",
     reservedBy: null
   },
   {
@@ -124,7 +119,7 @@ let machines = [
     status: "occupied",
     remainingTime: 15,
     zone: "Zona fuerza superior",
-    image: "/images/peck.jpg",
+    image: "/images/pec-deck.png",
     reservedBy: "Usuario demo"
   },
   {
@@ -135,7 +130,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/curl_biceps.gif",
+    image: "/images/biceps-machine.png",
     reservedBy: null
   },
   {
@@ -146,11 +141,9 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona fuerza superior",
-    image: "/images/triceps.png",
+    image: "/images/triceps-machine.png",
     reservedBy: null
   },
-
-  // TREN INFERIOR
   {
     id: 13,
     name: "Prensa de piernas 1",
@@ -159,7 +152,7 @@ let machines = [
     status: "occupied",
     remainingTime: 10,
     zone: "Zona pierna",
-    image: "/images/prensa_pierna.jpg",
+    image: "/images/leg-press.png",
     reservedBy: "Usuario demo"
   },
   {
@@ -170,7 +163,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona pierna",
-    image: "/images/extension_cuadriceps.jpeg",
+    image: "/images/leg-extension.png",
     reservedBy: null
   },
   {
@@ -181,7 +174,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona pierna",
-    image: "/images/femoral.jpeg",
+    image: "/images/leg-curl.png",
     reservedBy: null
   },
   {
@@ -192,7 +185,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona pierna",
-    image: "/images/abductor_m.gif",
+    image: "/images/abductor-machine.png",
     reservedBy: null
   },
   {
@@ -203,7 +196,7 @@ let machines = [
     status: "occupied",
     remainingTime: 8,
     zone: "Zona pierna",
-    image: "/images/aductor.gif",
+    image: "/images/adductor-machine.png",
     reservedBy: "Usuario demo"
   },
   {
@@ -214,7 +207,7 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona glúteo",
-    image: "/images/hip-thrust.png",
+    image: "/images/hip-thrust-machine.png",
     reservedBy: null
   },
   {
@@ -225,11 +218,9 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona pierna",
-    image: "/images/gemelos.jpeg",
+    image: "/images/calf-raise-machine.png",
     reservedBy: null
   },
-
-  // CORE
   {
     id: 20,
     name: "Abdominales 1",
@@ -238,15 +229,13 @@ let machines = [
     status: "free",
     remainingTime: 0,
     zone: "Zona core",
-    image: "/images/abdominales.jpg",
+    image: "/images/abdominal-machine.png",
     reservedBy: null
   }
 ];
 
-// Servir archivos estáticos
 app.use(express.static(path.join(__dirname, "public")));
 
-// Rutas principales
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -255,36 +244,31 @@ app.get("/mobile", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "mobile.html"));
 });
 
-// Socket.IO
+app.get("/trackpad", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "trackpad.html"));
+});
+
 io.on("connection", (socket) => {
   console.log("Cliente conectado:", socket.id);
 
-  // Enviar estado inicial
   socket.emit("machines:update", machines);
 
-  // Login simple
   socket.on("user:login", (username) => {
     const safeUsername = String(username || "").trim();
-
-    if (!safeUsername) {
-      return;
-    }
-
+    if (!safeUsername) return;
     users[socket.id] = safeUsername;
-    console.log("Usuario logueado:", safeUsername, "| socket:", socket.id);
   });
 
-  // Reserva de máquina con duración
+  socket.on("user:logout", () => {
+    delete users[socket.id];
+  });
+
   socket.on("machine:reserve", ({ machineId, duration }) => {
     const parsedMachineId = Number(machineId);
     const parsedDuration = Number(duration);
-
     const allowedDurations = [5, 10, 15, 20, 25, 30];
 
-    if (!allowedDurations.includes(parsedDuration)) {
-      console.log("Duración no válida:", parsedDuration);
-      return;
-    }
+    if (!allowedDurations.includes(parsedDuration)) return;
 
     machines = machines.map((machine) => {
       if (machine.id === parsedMachineId && machine.status === "free") {
@@ -301,26 +285,36 @@ io.on("connection", (socket) => {
     io.emit("machines:update", machines);
   });
 
-  // Trackpad: movimiento del cursor
-  socket.on("cursor:move", (data) => {
-    socket.broadcast.emit("cursor:update", data);
+  socket.on("cursor:update", ({ xRatio, yRatio }) => {
+    const safeX = Math.max(0, Math.min(1, Number(xRatio)));
+    const safeY = Math.max(0, Math.min(1, Number(yRatio)));
+
+    socket.broadcast.emit("cursor:update", {
+      xRatio: safeX,
+      yRatio: safeY
+    });
+  });
+
+  socket.on("cursor:hide", () => {
+    socket.broadcast.emit("cursor:hide");
+  });
+
+  socket.on("cursor:scroll", ({ deltaY }) => {
+    const safeDelta = Number(deltaY) || 0;
+    socket.broadcast.emit("cursor:scroll", { deltaY: safeDelta });
   });
 
   socket.on("disconnect", () => {
-    console.log("Cliente desconectado:", socket.id);
     delete users[socket.id];
   });
 });
 
-// Cada minuto baja 1 minuto en las máquinas ocupadas.
-// Cuando llega a 0, la máquina vuelve a quedar libre.
 setInterval(() => {
   let hasChanges = false;
 
   machines = machines.map((machine) => {
     if (machine.status === "occupied" && machine.remainingTime > 0) {
       hasChanges = true;
-
       const updatedRemainingTime = machine.remainingTime - 1;
 
       if (updatedRemainingTime <= 0) {

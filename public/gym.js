@@ -1,11 +1,21 @@
 const socket = io();
-const container = document.getElementById("machines-container");
 
+const container = document.getElementById("machines-container");
 const totalMachinesEl = document.getElementById("total-machines");
 const freeMachinesEl = document.getElementById("free-machines");
 const occupiedMachinesEl = document.getElementById("occupied-machines");
 
-// ===== HELPERS =====
+const categoryFilter = document.getElementById("gym-category-filter");
+const statusFilter = document.getElementById("gym-status-filter");
+
+let allMachines = [];
+
+// Cursor remoto
+const remoteCursor = document.createElement("div");
+remoteCursor.id = "remote-cursor";
+remoteCursor.innerHTML = `<div class="remote-cursor-inner"></div>`;
+document.body.appendChild(remoteCursor);
+
 function getStatusLabel(status) {
   return status === "free" ? "Libre" : "Ocupada";
 }
@@ -14,7 +24,6 @@ function getStatusClass(status) {
   return status === "free" ? "status-free" : "status-occupied";
 }
 
-// ===== STATS =====
 function updateStats(machines) {
   const total = machines.length;
   const free = machines.filter((m) => m.status === "free").length;
@@ -25,11 +34,39 @@ function updateStats(machines) {
   occupiedMachinesEl.textContent = occupied;
 }
 
-// ===== RENDER =====
+function applyFilters(machines) {
+  const selectedCategory = categoryFilter ? categoryFilter.value : "all";
+  const selectedStatus = statusFilter ? statusFilter.value : "all";
+
+  let filtered = [...machines];
+
+  if (selectedCategory !== "all") {
+    filtered = filtered.filter((machine) => machine.category === selectedCategory);
+  }
+
+  if (selectedStatus !== "all") {
+    filtered = filtered.filter((machine) => machine.status === selectedStatus);
+  }
+
+  return filtered;
+}
+
 function renderMachines(machines) {
   container.innerHTML = "";
 
-  machines.forEach((machine) => {
+  const filteredMachines = applyFilters(machines);
+
+  if (filteredMachines.length === 0) {
+    container.innerHTML = `
+      <div class="feedback-message">
+        No hay máquinas que coincidan con los filtros seleccionados.
+      </div>
+    `;
+    updateStats(machines);
+    return;
+  }
+
+  filteredMachines.forEach((machine) => {
     const card = document.createElement("article");
     card.className = `machine-card visual-card ${machine.status}`;
 
@@ -59,11 +96,11 @@ function renderMachines(machines) {
           ${
             machine.status === "occupied"
               ? `
-              <div class="detail-box">
-                <span class="detail-label">Reservada por</span>
-                <strong>${machine.reservedBy || "Desconocido"}</strong>
-              </div>
-            `
+                <div class="detail-box">
+                  <span class="detail-label">Reservada por</span>
+                  <strong>${machine.reservedBy || "Desconocido"}</strong>
+                </div>
+              `
               : ""
           }
 
@@ -81,7 +118,42 @@ function renderMachines(machines) {
   updateStats(machines);
 }
 
-// ===== SOCKET =====
 socket.on("machines:update", (machines) => {
-  renderMachines(machines);
+  allMachines = machines;
+  renderMachines(allMachines);
+});
+
+if (categoryFilter) {
+  categoryFilter.addEventListener("change", () => {
+    renderMachines(allMachines);
+  });
+}
+
+if (statusFilter) {
+  statusFilter.addEventListener("change", () => {
+    renderMachines(allMachines);
+  });
+}
+
+// Mover cursor con un dedo
+socket.on("cursor:update", ({ xRatio, yRatio }) => {
+  const x = window.innerWidth * xRatio;
+  const y = window.innerHeight * yRatio;
+
+  remoteCursor.style.left = `${x}px`;
+  remoteCursor.style.top = `${y}px`;
+  remoteCursor.classList.add("visible");
+});
+
+// Ocultar cursor al levantar dedo
+socket.on("cursor:hide", () => {
+  remoteCursor.classList.remove("visible");
+});
+
+// Scroll con dos dedos
+socket.on("cursor:scroll", ({ deltaY }) => {
+  window.scrollBy({
+    top: deltaY * 2.4,
+    behavior: "auto"
+  });
 });
