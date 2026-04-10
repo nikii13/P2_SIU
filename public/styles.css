@@ -683,3 +683,234 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== GESTURE CONTROL PAGE ===== */
+
+.gesture-body {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0f172a 0%, #18284e 100%);
+  color: white;
+}
+
+.gesture-screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.gesture-overlay {
+  position: relative;
+  z-index: 2;
+  padding: 28px 22px 14px;
+}
+
+.gesture-label {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+  opacity: 0.75;
+}
+
+.gesture-overlay h1 {
+  margin: 0 0 12px;
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+}
+
+.gesture-instructions {
+  margin: 0;
+  max-width: 28rem;
+  line-height: 1.5;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+
+.gesture-camera-wrap {
+  position: relative;
+  flex: 1;
+  margin: 14px 22px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.gesture-camera-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.gesture-camera-wrap canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1);
+  pointer-events: none;
+}
+
+.gesture-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px 22px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.status-dot.waiting {
+  background: #facc15;
+  box-shadow: 0 0 8px rgba(250, 204, 21, 0.5);
+}
+
+.status-dot.tracking {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.status-dot.active {
+  background: #7aa2ff;
+  box-shadow: 0 0 12px rgba(122, 162, 255, 0.6);
+}
+
+.status-dot.error {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.gesture-arrow {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.gesture-arrow.visible {
+  opacity: 1;
+}
+
+.gesture-arrow.up::after,
+.gesture-arrow.down::after {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  margin: 0 auto;
+  border-left: 30px solid transparent;
+  border-right: 30px solid transparent;
+}
+
+.gesture-arrow.up::after {
+  border-bottom: 50px solid rgba(122, 162, 255, 0.7);
+}
+
+.gesture-arrow.down::after {
+  border-top: 50px solid rgba(122, 162, 255, 0.7);
+}
+
+/* ===== VOICE CONTROL ===== */
+
+.voice-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.voice-btn.voice-active {
+  background: #22c55e;
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+}
+
+.voice-btn.voice-listening {
+  background: #f59e0b;
+  box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.25), 0 6px 20px rgba(245, 158, 11, 0.4);
+  animation: voice-pulse 1.2s infinite;
+}
+
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.25), 0 6px 20px rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(245, 158, 11, 0.12), 0 6px 20px rgba(245, 158, 11, 0.4); }
+}
+
+.voice-chat {
+  position: fixed;
+  bottom: 92px;
+  right: 24px;
+  width: 300px;
+  max-height: 260px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+  z-index: 1000;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.voice-log {
+  padding: 14px;
+  overflow-y: auto;
+  max-height: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voice-msg {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  max-width: 90%;
+}
+
+.voice-user {
+  background: var(--surface-2);
+  color: var(--text);
+  align-self: flex-end;
+}
+
+.voice-gym {
+  background: var(--primary);
+  color: white;
+  align-self: flex-start;
+}

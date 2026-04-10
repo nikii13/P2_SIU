@@ -135,7 +135,7 @@ let machines = [
   },
   {
     id: 12,
-    name: "Tríceps 1",
+    name: "Tricep Extension",
     category: "Tren superior",
     subtype: "Extensión de tríceps",
     status: "free",
@@ -248,6 +248,10 @@ app.get("/trackpad", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "trackpad.html"));
 });
 
+app.get("/gesture", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "gesture.html"));
+});
+
 io.on("connection", (socket) => {
   console.log("Cliente conectado:", socket.id);
 
@@ -282,6 +286,17 @@ io.on("connection", (socket) => {
       return machine;
     });
 
+    io.emit("machines:update", machines);
+  });
+
+  socket.on("machine:free", ({ machineId }) => {
+    const parsedId = Number(machineId);
+    machines = machines.map((machine) => {
+      if (machine.id === parsedId && machine.status === "occupied" && machine.reservedBy === (users[socket.id] || "")) {
+        return { ...machine, status: "free", remainingTime: 0, reservedBy: null };
+      }
+      return machine;
+    });
     io.emit("machines:update", machines);
   });
 

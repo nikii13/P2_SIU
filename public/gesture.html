@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Gesture Control - Gym</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="gesture-body">
+  <div class="gesture-screen" id="gesture-screen">
+    <div class="gesture-overlay">
+      <p class="gesture-label">Control por gestos</p>
+      <h1>Navega con la mano</h1>
+      <p class="gesture-instructions">
+        Mueve la mano hacia arriba o abajo frente a la cámara para hacer scroll en la pantalla del gimnasio.
+      </p>
+    </div>
+
+    <div class="gesture-camera-wrap">
+      <video id="camera-feed" autoplay playsinline></video>
+      <canvas id="hand-canvas"></canvas>
+    </div>
+
+    <div class="gesture-status" id="gesture-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Iniciando cámara...</span>
+    </div>
+
+    <div class="gesture-arrow" id="gesture-arrow"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js" crossorigin="anonymous"></script>
+  <script src="/gesture.js"></script>
+</body>
+</html>
