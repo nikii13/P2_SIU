@@ -250,3 +250,193 @@ if (filterSelect) {
     renderMachines(allMachines);
   });
 }
+
+// ===== VOICE CONTROL =====
+
+const voiceBtn = document.getElementById("voice-btn");
+const voiceChat = document.getElementById("voice-chat");
+const voiceLog = document.getElementById("voice-log");
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let voiceActive = false;
+let voiceState = "WAITING"; // WAITING = listening for wake word, COMMAND = listening for a command
+
+function addVoiceMessage(text, sender) {
+  const div = document.createElement("div");
+  div.className = "voice-msg " + (sender === "user" ? "voice-user" : "voice-gym");
+  div.textContent = (sender === "user" ? "You: " : "Gym: ") + text;
+  voiceLog.appendChild(div);
+  voiceLog.scrollTop = voiceLog.scrollHeight;
+  voiceChat.classList.remove("hidden");
+}
+
+function speak(text) {
+  const synth = window.speechSynthesis;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = "en-US";
+  synth.speak(utter);
+}
+
+function findMachineByVoice(transcript) {
+  const lower = transcript.toLowerCase();
+  let bestMatch = null;
+  let bestLen = 0;
+
+  for (const m of allMachines) {
+    const name = m.name.toLowerCase();
+    const subtype = m.subtype.toLowerCase();
+    if (lower.includes(name) && name.length > bestLen) {
+      bestMatch = m;
+      bestLen = name.length;
+    } else if (lower.includes(subtype) && subtype.length > bestLen) {
+      bestMatch = m;
+      bestLen = subtype.length;
+    }
+  }
+  return bestMatch;
+}
+
+function handleVoiceResult(transcript) {
+  const lower = transcript.toLowerCase();
+  alert("Heard: " + transcript);
+
+  if (voiceState === "WAITING") {
+    if (lower.includes("hey jim") || lower.includes("hey gym") || lower.includes("hey gim") || lower.includes("a jim") || lower.includes("hey june")) {
+      voiceState = "COMMAND";
+      addVoiceMessage("Hey Jim", "user");
+      const reply = "yes, what can I do for you";
+      addVoiceMessage(reply, "gym");
+      speak(reply);
+      voiceBtn.classList.add("voice-listening");
+    }
+    return;
+  }
+
+  if (voiceState === "COMMAND") {
+    addVoiceMessage(transcript, "user");
+
+    if (lower.includes("book")) {
+      if (!username) {
+        const reply = "you need to log in first";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+        voiceState = "WAITING";
+        voiceBtn.classList.remove("voice-listening");
+        return;
+      }
+
+      const machine = findMachineByVoice(transcript);
+      if (!machine) {
+        const reply = "sorry, I could not find that machine";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      } else if (machine.status !== "free") {
+        const reply = "sorry, " + machine.name + " is currently occupied";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      } else {
+        socket.emit("machine:reserve", { machineId: machine.id, duration: 10 });
+        const reply = "okay " + machine.name + " is now booked for you";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      }
+      voiceState = "WAITING";
+      voiceBtn.classList.remove("voice-listening");
+      return;
+    }
+
+    if (lower.includes("free") || lower.includes("release") || lower.includes("cancel")) {
+      if (!username) {
+        const reply = "you need to log in first";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+        voiceState = "WAITING";
+        voiceBtn.classList.remove("voice-listening");
+        return;
+      }
+
+      const machine = findMachineByVoice(transcript);
+      if (!machine) {
+        const reply = "sorry, I could not find that machine";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      } else if (machine.status !== "occupied") {
+        const reply = machine.name + " is already free";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      } else {
+        socket.emit("machine:free", { machineId: machine.id });
+        const reply = "okay " + machine.name + " is now free";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      }
+      voiceState = "WAITING";
+      voiceBtn.classList.remove("voice-listening");
+      return;
+    }
+
+    const reply = "sorry, I didn't understand. Say 'book' or 'free' followed by a machine name";
+    addVoiceMessage(reply, "gym");
+    speak(reply);
+    voiceState = "WAITING";
+    voiceBtn.classList.remove("voice-listening");
+  }
+}
+
+function startVoice() {
+  if (!SpeechRecognition) {
+    showFeedback("Tu navegador no soporta reconocimiento de voz");
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.lang = "en-US";
+
+  recognition.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        handleVoiceResult(event.results[i][0].transcript);
+      }
+    }
+  };
+
+  recognition.onend = () => {
+    if (voiceActive) recognition.start();
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error !== "no-speech" && e.error !== "aborted") {
+      console.error("Voice error:", e.error);
+    }
+  };
+
+  recognition.start();
+  voiceActive = true;
+  voiceBtn.classList.add("voice-active");
+  showFeedback('Voice active — say "Hey Jim" to start');
+}
+
+function stopVoice() {
+  voiceActive = false;
+  if (recognition) {
+    recognition.stop();
+    recognition = null;
+  }
+  voiceState = "WAITING";
+  voiceBtn.classList.remove("voice-active", "voice-listening");
+  voiceChat.classList.add("hidden");
+  voiceLog.innerHTML = "";
+  showFeedback("Voice control off");
+}
+
+if (voiceBtn) {
+  voiceBtn.addEventListener("click", () => {
+    if (voiceActive) stopVoice();
+    else startVoice();
+  });
+}
+
+if (SpeechRecognition) startVoice();
