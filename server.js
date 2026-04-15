@@ -15,6 +15,8 @@ const HTTPS_PORT = Number(process.env.HTTPS_PORT || 3443);
 const users = {};
 const socketToUsername = users;
 
+const QUEUE_AUTO_RESERVE_MINUTES = 10;
+
 function nowMs() {
   return Date.now();
 }
@@ -26,7 +28,7 @@ function safeName(name) {
 let machines = [
   {
     id: 1,
-    name: "Cinta 1",
+    name: "Cinta uno",
     category: "Cardio",
     subtype: "Cinta",
     status: "free",
@@ -37,7 +39,7 @@ let machines = [
   },
   {
     id: 2,
-    name: "Bicicleta 1",
+    name: "Bicicleta uno",
     category: "Cardio",
     subtype: "Bicicleta",
     status: "occupied",
@@ -249,8 +251,6 @@ let machines = [
 // ===== QUEUES (per machine) =====
 // Each entry: { username, socketId, priorityRemaining, enqueuedAtMs }
 const machineQueues = new Map(); // machineId -> entry[]
-// machineId -> { toSocketId, toUsername, expiresAtMs, timer }
-const machineOffers = new Map();
 
 function getMachine(machineId) {
   const id = Number(machineId);
@@ -305,60 +305,50 @@ function computeAndSortQueue(machineId) {
   return q;
 }
 
-function clearOffer(machineId) {
-  const id = Number(machineId);
-  const offer = machineOffers.get(id);
-  if (offer?.timer) clearTimeout(offer.timer);
-  machineOffers.delete(id);
-}
-
 function broadcastMachinesUpdate(ioInstance) {
   const payload = machines.map((m) => {
     const q = getQueue(m.id);
-    const offer = machineOffers.get(m.id);
     return {
       ...m,
       waitQueueLength: q.length,
-      waitQueue: q.map((e) => e.username),
-      offeredTo: offer ? offer.toUsername : null
+      waitQueue: q.map((e) => e.username)
     };
   });
   ioInstance.emit("machines:update", payload);
 }
 
-function maybeOfferNext(ioInstance, machineId) {
+function tryAutoReserveNext(ioInstance, machineId) {
   const m = getMachine(machineId);
   if (!m) return;
   if (m.status !== "free") return;
 
   const q = computeAndSortQueue(machineId);
   if (q.length === 0) return;
-  const existingOffer = machineOffers.get(Number(machineId));
-  if (existingOffer) return;
 
   const top = q[0];
-  const expiresAtMs = nowMs() + 20000;
+  removeFromMachineQueue(machineId, top.socketId);
 
-  const timer = setTimeout(() => {
-    // Expired: remove top entry and offer next
-    removeFromMachineQueue(machineId, top.socketId);
-    clearOffer(machineId);
-    broadcastMachinesUpdate(ioInstance);
-    maybeOfferNext(ioInstance, machineId);
-  }, 20000);
-
-  machineOffers.set(Number(machineId), {
-    toSocketId: top.socketId,
-    toUsername: top.username,
-    expiresAtMs,
-    timer
+  machines = machines.map((machine) => {
+    if (machine.id === Number(machineId) && machine.status === "free") {
+      return {
+        ...machine,
+        status: "occupied",
+        remainingTime: QUEUE_AUTO_RESERVE_MINUTES,
+        reservedBy: top.username
+      };
+    }
+    return machine;
   });
 
-  ioInstance.to(top.socketId).emit("machine:offer", {
-    machineId: Number(machineId),
-    machineName: m.name,
-    expiresAtMs
-  });
+  const updated = getMachine(machineId);
+  if (updated) {
+    ioInstance.to(top.socketId).emit("machine:vacant", {
+      machineId: Number(machineId),
+      machineName: updated.name,
+      duration: QUEUE_AUTO_RESERVE_MINUTES
+    });
+  }
+
   broadcastMachinesUpdate(ioInstance);
 }
 
@@ -389,8 +379,7 @@ io.on("connection", (socket) => {
     machines.map((m) => ({
       ...m,
       waitQueueLength: getQueue(m.id).length,
-      waitQueue: getQueue(m.id).map((e) => e.username),
-      offeredTo: machineOffers.get(m.id)?.toUsername || null
+      waitQueue: getQueue(m.id).map((e) => e.username)
     }))
   );
 
@@ -425,7 +414,6 @@ io.on("connection", (socket) => {
     });
 
     // If someone reserves, clear offers/queue for that machine (reservation is now taken).
-    clearOffer(parsedMachineId);
     // remove reserver from queue too if present
     removeFromMachineQueue(parsedMachineId, socket.id);
     broadcastMachinesUpdate(io);
@@ -439,9 +427,8 @@ io.on("connection", (socket) => {
       }
       return machine;
     });
-    clearOffer(parsedId);
     broadcastMachinesUpdate(io);
-    maybeOfferNext(io, parsedId);
+    tryAutoReserveNext(io, parsedId);
   });
 
   socket.on("machine:queue:join", ({ machineId }) => {
@@ -473,55 +460,6 @@ io.on("connection", (socket) => {
   socket.on("machine:queue:leave", ({ machineId }) => {
     const parsedId = Number(machineId);
     removeFromMachineQueue(parsedId, socket.id);
-
-    const offer = machineOffers.get(parsedId);
-    if (offer && offer.toSocketId === socket.id) {
-      clearOffer(parsedId);
-      maybeOfferNext(io, parsedId);
-    }
-    broadcastMachinesUpdate(io);
-  });
-
-  socket.on("machine:offer:respond", ({ machineId, accept, duration }) => {
-    const parsedId = Number(machineId);
-    const offer = machineOffers.get(parsedId);
-    if (!offer) return;
-    if (offer.toSocketId !== socket.id) return;
-
-    const accepted = Boolean(accept);
-    if (!accepted) {
-      // Declined: remove from queue and offer next
-      removeFromMachineQueue(parsedId, socket.id);
-      clearOffer(parsedId);
-      broadcastMachinesUpdate(io);
-      maybeOfferNext(io, parsedId);
-      return;
-    }
-
-    const parsedDuration = Number(duration);
-    const allowedDurations = [5, 10, 15, 20, 25, 30];
-    if (!allowedDurations.includes(parsedDuration)) return;
-
-    // Reserve if still free.
-    const username = users[socket.id] || "Anónimo";
-    const machine = getMachine(parsedId);
-    if (!machine || machine.status !== "free") {
-      // Machine got taken; remove and continue.
-      removeFromMachineQueue(parsedId, socket.id);
-      clearOffer(parsedId);
-      broadcastMachinesUpdate(io);
-      return;
-    }
-
-    machines = machines.map((m) => {
-      if (m.id === parsedId && m.status === "free") {
-        return { ...m, status: "occupied", remainingTime: parsedDuration, reservedBy: username };
-      }
-      return m;
-    });
-
-    removeFromMachineQueue(parsedId, socket.id);
-    clearOffer(parsedId);
     broadcastMachinesUpdate(io);
   });
 
@@ -583,8 +521,7 @@ setInterval(() => {
     for (const m of machines) computeAndSortQueue(m.id);
     broadcastMachinesUpdate(io);
     for (const mid of freed) {
-      clearOffer(mid);
-      maybeOfferNext(io, mid);
+      tryAutoReserveNext(io, mid);
     }
   }
 }, 60000);

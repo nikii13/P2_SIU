@@ -10,16 +10,33 @@ const logoutBtn = document.getElementById("logout-btn");
 
 const loginBtn = document.getElementById("login-btn");
 const usernameInput = document.getElementById("username-input");
+const trackpadNavBtn = document.getElementById("trackpad-nav-btn");
+const trackpadNavBtn2 = document.getElementById("trackpad-nav-btn-2");
+const trackpadFab = document.getElementById("trackpad-fab");
+const gestureFab = document.getElementById("gesture-fab");
+const gesturePanel = document.getElementById("gesture-panel");
 
 let username = null;
 let allMachines = [];
 let selectedMachineId = null;
 let selectedDurations = {};
 
-let activeOffer = null; // { machineId, machineName, expiresAtMs }
-let offerTimer = null;
-
 const USERNAME_STORAGE_KEY = "gym_username";
+
+function goToTrackpad() {
+  window.location.href = "/trackpad";
+}
+
+if (trackpadNavBtn) trackpadNavBtn.addEventListener("click", goToTrackpad);
+if (trackpadNavBtn2) trackpadNavBtn2.addEventListener("click", goToTrackpad);
+if (trackpadFab) trackpadFab.addEventListener("click", goToTrackpad);
+
+function toggleGesturesPanel() {
+  if (!gesturePanel) return;
+  gesturePanel.classList.toggle("hidden");
+}
+
+if (gestureFab) gestureFab.addEventListener("click", toggleGesturesPanel);
 
 function setLoggedInUser(nextUsername) {
   username = nextUsername;
@@ -96,83 +113,6 @@ function getQueueInfo(machine) {
   return { list, length, pos };
 }
 
-function ensureOfferUi() {
-  let el = document.getElementById("offer-toast");
-  if (el) return el;
-
-  el = document.createElement("div");
-  el.id = "offer-toast";
-  el.className = "offer-toast hidden";
-  el.innerHTML = `
-    <div class="offer-title" id="offer-title"></div>
-    <div class="offer-subtitle" id="offer-subtitle"></div>
-    <div class="offer-actions">
-      <button id="offer-accept-btn" type="button">Reserve</button>
-      <button id="offer-decline-btn" class="secondary-button" type="button">Skip</button>
-    </div>
-  `;
-  document.body.appendChild(el);
-
-  const acceptBtn = document.getElementById("offer-accept-btn");
-  const declineBtn = document.getElementById("offer-decline-btn");
-
-  acceptBtn.addEventListener("click", () => {
-    if (!activeOffer) return;
-    const duration = getSelectedDuration(activeOffer.machineId);
-    socket.emit("machine:offer:respond", {
-      machineId: activeOffer.machineId,
-      accept: true,
-      duration
-    });
-    hideOfferUi();
-    showFeedback(`Reserva aceptada (${duration} min).`);
-  });
-
-  declineBtn.addEventListener("click", () => {
-    if (!activeOffer) return;
-    socket.emit("machine:offer:respond", {
-      machineId: activeOffer.machineId,
-      accept: false
-    });
-    hideOfferUi();
-    showFeedback("Has pasado tu turno.");
-  });
-
-  return el;
-}
-
-function hideOfferUi() {
-  const el = document.getElementById("offer-toast");
-  if (el) el.classList.add("hidden");
-  activeOffer = null;
-  if (offerTimer) {
-    clearInterval(offerTimer);
-    offerTimer = null;
-  }
-}
-
-function showOfferUi({ machineId, machineName, expiresAtMs }) {
-  const el = ensureOfferUi();
-  activeOffer = { machineId, machineName, expiresAtMs };
-
-  const title = document.getElementById("offer-title");
-  const subtitle = document.getElementById("offer-subtitle");
-
-  title.textContent = `${machineName} is free`;
-  const updateCountdown = () => {
-    const leftMs = Math.max(0, Number(expiresAtMs) - Date.now());
-    const leftSec = Math.ceil(leftMs / 1000);
-    subtitle.textContent = `Do you want to reserve? (${leftSec}s)`;
-    if (leftMs <= 0) hideOfferUi();
-  };
-
-  updateCountdown();
-  el.classList.remove("hidden");
-
-  if (offerTimer) clearInterval(offerTimer);
-  offerTimer = setInterval(updateCountdown, 250);
-}
-
 function renderMachines(machines) {
   if (!container || !filterSelect) return;
 
@@ -245,17 +185,17 @@ function renderMachines(machines) {
           machine.status === "occupied"
             ? `
               <div class="detail-box reserved-by-box">
-                <span class="detail-label">Queue</span>
+                <span class="detail-label">Cola</span>
                 <strong>
-                  ${queueInfo.length} waiting${inQueue ? ` · You: #${queueInfo.pos + 1}` : ""}
+                  ${queueInfo.length} esperando${inQueue ? ` · Tú: #${queueInfo.pos + 1}` : ""}
                 </strong>
               </div>
               <div class="inline-actions">
                 <button class="queue-join-btn" data-queue-join-id="${machine.id}" ${!username || inQueue ? "disabled" : ""}>
-                  Join queue
+                  Unirse a la cola
                 </button>
                 <button class="secondary-button queue-leave-btn" data-queue-leave-id="${machine.id}" ${!username || !inQueue ? "disabled" : ""}>
-                  Leave queue
+                  Salir de la cola
                 </button>
               </div>
             `
@@ -386,20 +326,11 @@ socket.on("machines:update", (machines) => {
     selectedMachineId = null;
   }
 
-  if (activeOffer) {
-    const offeredMachine = allMachines.find((m) => m.id === activeOffer.machineId);
-    if (!offeredMachine || offeredMachine.status !== "free") {
-      hideOfferUi();
-    }
-  }
-
   renderMachines(allMachines);
 });
 
-socket.on("machine:offer", ({ machineId, machineName, expiresAtMs }) => {
-  // Only sent to the top-of-queue user by the server.
-  showOfferUi({ machineId, machineName, expiresAtMs });
-  const text = `${machineName} is free. Do you want to reserve?`;
+socket.on("machine:vacant", ({ machineName, duration }) => {
+  const text = `${machineName} está ahora libre. Te la he reservado durante ${duration} minutos.`;
   addVoiceMessage(text, "gym");
   speak(text);
 });
@@ -430,20 +361,138 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 let recognition = null;
 let voiceActive = false;
 let voiceState = "WAITING"; // WAITING = listening for wake word, COMMAND = listening for a command
+let liveUserEl = null;
+let liveGymEl = null;
+let isSpeaking = false;
+let lastWakeAtMs = 0;
+let commandSessionUntilMs = 0;
+let commandSessionTimer = null;
+
+const WAKE_DEBOUNCE_MS = 2500;
+const COMMAND_SESSION_MS = 12000;
 
 function addVoiceMessage(text, sender) {
   const div = document.createElement("div");
   div.className = "voice-msg " + (sender === "user" ? "voice-user" : "voice-gym");
-  div.textContent = (sender === "user" ? "You: " : "Gym: ") + text;
+  div.textContent = (sender === "user" ? "Tú: " : "Gym: ") + text;
   voiceLog.appendChild(div);
   voiceLog.scrollTop = voiceLog.scrollHeight;
   voiceChat.classList.remove("hidden");
 }
 
+function ensureLiveUserLine() {
+  if (liveUserEl && liveUserEl.isConnected) return liveUserEl;
+  liveUserEl = document.createElement("div");
+  liveUserEl.className = "voice-msg voice-user voice-live";
+  liveUserEl.textContent = "Tú: ";
+  voiceLog.appendChild(liveUserEl);
+  voiceLog.scrollTop = voiceLog.scrollHeight;
+  voiceChat.classList.remove("hidden");
+  return liveUserEl;
+}
+
+function clearLiveUserLine() {
+  if (liveUserEl && liveUserEl.isConnected) liveUserEl.remove();
+  liveUserEl = null;
+}
+
+function ensureLiveGymLine() {
+  if (liveGymEl && liveGymEl.isConnected) return liveGymEl;
+  liveGymEl = document.createElement("div");
+  liveGymEl.className = "voice-msg voice-gym voice-live";
+  liveGymEl.textContent = "Gym: ";
+  voiceLog.appendChild(liveGymEl);
+  voiceLog.scrollTop = voiceLog.scrollHeight;
+  voiceChat.classList.remove("hidden");
+  return liveGymEl;
+}
+
+function clearLiveGymLine() {
+  if (liveGymEl && liveGymEl.isConnected) liveGymEl.remove();
+  liveGymEl = null;
+}
+
+function openCommandSession() {
+  voiceState = "COMMAND";
+  commandSessionUntilMs = Date.now() + COMMAND_SESSION_MS;
+  voiceBtn.classList.add("voice-listening");
+  if (commandSessionTimer) clearInterval(commandSessionTimer);
+  commandSessionTimer = setInterval(() => {
+    if (!voiceActive) return;
+    if (voiceState !== "COMMAND") return;
+    if (Date.now() > commandSessionUntilMs) {
+      voiceState = "WAITING";
+      voiceBtn.classList.remove("voice-listening");
+      clearLiveUserLine();
+      clearLiveGymLine();
+    }
+  }, 400);
+}
+
+function bumpCommandSession() {
+  if (voiceState === "COMMAND") {
+    commandSessionUntilMs = Date.now() + COMMAND_SESSION_MS;
+  }
+}
+
+let cachedSpanishVoice = null;
+function pickSpanishVoice() {
+  const synth = window.speechSynthesis;
+  const voices = synth.getVoices ? synth.getVoices() : [];
+  if (!voices.length) return null;
+  const esES = voices.filter((v) => String(v.lang || "").toLowerCase().startsWith("es-es"));
+  if (esES.length) return esES[0];
+  const esAny = voices.filter((v) => String(v.lang || "").toLowerCase().startsWith("es"));
+  return esAny[0] || null;
+}
+
 function speak(text) {
   const synth = window.speechSynthesis;
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = "en-US";
+  utter.lang = "es-ES";
+  if (!cachedSpanishVoice) cachedSpanishVoice = pickSpanishVoice();
+  if (cachedSpanishVoice) utter.voice = cachedSpanishVoice;
+
+  // Prevent the assistant's own voice from triggering recognition.
+  isSpeaking = true;
+  try {
+    if (recognition) recognition.abort();
+  } catch (_) {}
+
+  const liveEl = ensureLiveGymLine();
+  liveEl.textContent = "Gym: ";
+  let lastCharIndex = 0;
+
+  utter.onboundary = (e) => {
+    if (!liveEl.isConnected) return;
+    if (typeof e.charIndex === "number") {
+      lastCharIndex = Math.max(lastCharIndex, e.charIndex);
+      liveEl.textContent = "Gym: " + text.slice(0, lastCharIndex).trim();
+      voiceLog.scrollTop = voiceLog.scrollHeight;
+    }
+  };
+
+  utter.onend = () => {
+    isSpeaking = false;
+    if (liveEl.isConnected) {
+      liveEl.textContent = "Gym: " + text;
+      setTimeout(() => clearLiveGymLine(), 400);
+    }
+    // Resume recognition shortly after speaking ends.
+    if (voiceActive && recognition) {
+      setTimeout(() => {
+        try {
+          recognition.start();
+        } catch (_) {}
+      }, 250);
+    }
+  };
+
+  utter.onerror = () => {
+    isSpeaking = false;
+    setTimeout(() => clearLiveGymLine(), 200);
+  };
+
   synth.speak(utter);
 }
 
@@ -466,90 +515,207 @@ function findMachineByVoice(transcript) {
   return bestMatch;
 }
 
-function handleVoiceResult(transcript) {
+function normalizeText(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function hasWakeWord(lower) {
+  const t = normalizeText(lower);
+  return (
+    t.includes("hola gym") ||
+    t.includes("hola jim") ||
+    t.includes("ola gym") ||
+    t.includes("ola jim")
+  );
+}
+
+const FILTER_ALIASES = [
+  { value: "all", aliases: ["todas", "todo", "toda", "sin filtro", "quitar filtro", "mostrar todo", "mostrar todas"] },
+  { value: "Cardio", aliases: ["cardio"] },
+  { value: "Tren superior", aliases: ["tren superior", "superior", "fuerza superior"] },
+  { value: "Tren inferior", aliases: ["tren inferior", "inferior", "pierna", "piernas"] },
+  { value: "Core", aliases: ["core", "abdominales", "abdomen", "abdominal"] },
+];
+
+function setCategoryFilterByVoice(transcript) {
+  if (!filterSelect) return { ok: false, reason: "no-filter" };
+  const t = normalizeText(transcript);
+
+  for (const item of FILTER_ALIASES) {
+    if (item.aliases.some((a) => t.includes(a))) {
+      filterSelect.value = item.value;
+      selectedMachineId = null;
+      renderMachines(allMachines);
+      const label = item.value === "all" ? "todas" : item.value;
+      return { ok: true, label };
+    }
+  }
+
+  return { ok: false, reason: "no-match" };
+}
+
+function handleFinalTranscript(transcript) {
   const lower = transcript.toLowerCase();
-  alert("Heard: " + transcript);
 
   if (voiceState === "WAITING") {
-    if (lower.includes("hey jim") || lower.includes("hey gym") || lower.includes("hey gim") || lower.includes("a jim") || lower.includes("hey june")) {
-      voiceState = "COMMAND";
-      addVoiceMessage("Hey Jim", "user");
-      const reply = "yes, what can I do for you";
+    if (hasWakeWord(lower)) {
+      const now = Date.now();
+      if (now - lastWakeAtMs < WAKE_DEBOUNCE_MS) return;
+      lastWakeAtMs = now;
+
+      addVoiceMessage("Hola Gym", "user");
+      const reply = "Sí. ¿En qué puedo ayudarte?";
       addVoiceMessage(reply, "gym");
       speak(reply);
-      voiceBtn.classList.add("voice-listening");
+      openCommandSession();
     }
     return;
   }
 
   if (voiceState === "COMMAND") {
+    bumpCommandSession();
+
+    // Ignore wake word repeats while already in command mode.
+    if (hasWakeWord(lower)) return;
+
     addVoiceMessage(transcript, "user");
 
-    if (lower.includes("book")) {
-      if (!username) {
-        const reply = "you need to log in first";
+    const wantsReserve = /\b(reservar|reserva|reservame|resérvame)\b/i.test(transcript);
+    const wantsFree = /\b(liberar|libera|dejar libre|deja libre|cancelar|cancela)\b/i.test(transcript);
+    const wantsJoinQueue = /(ponme en la cola|unirme a la cola|entrar en la cola|hacer cola|meterme en la cola)/i.test(transcript);
+    const wantsLeaveQueue = /(salir de la cola|quitarme de la cola|dejar la cola)/i.test(transcript);
+    const wantsHelp = /\b(ayuda|que puedo decir|qué puedo decir)\b/i.test(transcript);
+    const wantsFilterList = /(que filtros hay|que filtros tienes|que categorias hay|que categorias tienes)/i.test(transcript);
+    const wantsFilter =
+      /(filtra|filtrar|filtrar por|mostrar|pon|poner|cambia a|cambiar a|categoria|categoría)/i.test(transcript) ||
+      /(cardio|tren superior|tren inferior|core|abdominales|pierna|piernas)/i.test(transcript);
+
+    if (wantsHelp) {
+      const reply =
+        "Puedes decir: 'reservar' + nombre de máquina, 'liberar' + nombre de máquina, 'ponme en la cola' + nombre de máquina, 'salir de la cola' + nombre de máquina, o 'filtra cardio / tren superior / tren inferior / core'.";
+      addVoiceMessage(reply, "gym");
+      speak(reply);
+      bumpCommandSession();
+      return;
+    }
+
+    if (wantsFilterList) {
+      const reply = "Los filtros disponibles son: todas, cardio, tren superior, tren inferior y core.";
+      addVoiceMessage(reply, "gym");
+      speak(reply);
+      bumpCommandSession();
+      return;
+    }
+
+    if (wantsFilter && !wantsReserve && !wantsFree && !wantsJoinQueue && !wantsLeaveQueue) {
+      const result = setCategoryFilterByVoice(transcript);
+      if (result.ok) {
+        const reply = `De acuerdo. Mostrando ${result.label}.`;
         addVoiceMessage(reply, "gym");
         speak(reply);
-        voiceState = "WAITING";
-        voiceBtn.classList.remove("voice-listening");
+      } else if (result.reason === "no-match") {
+        const reply = "No he entendido el filtro. Di: cardio, tren superior, tren inferior, core, o todas.";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      }
+      bumpCommandSession();
+      return;
+    }
+
+    if (wantsReserve) {
+      if (!username) {
+        const reply = "Necesitas iniciar sesión primero.";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+        bumpCommandSession();
         return;
       }
 
       const machine = findMachineByVoice(transcript);
       if (!machine) {
-        const reply = "sorry, I could not find that machine";
+        const reply = "Lo siento, no he encontrado esa máquina.";
         addVoiceMessage(reply, "gym");
         speak(reply);
       } else if (machine.status !== "free") {
-        const reply = "sorry, " + machine.name + " is currently occupied";
+        const reply = "Lo siento, " + machine.name + " está ocupada ahora mismo.";
         addVoiceMessage(reply, "gym");
         speak(reply);
       } else {
         socket.emit("machine:reserve", { machineId: machine.id, duration: 10 });
-        const reply = "okay " + machine.name + " is now booked for you";
+        const reply = "Perfecto. " + machine.name + " queda reservada para ti.";
         addVoiceMessage(reply, "gym");
         speak(reply);
       }
-      voiceState = "WAITING";
-      voiceBtn.classList.remove("voice-listening");
+      bumpCommandSession();
       return;
     }
 
-    if (lower.includes("free") || lower.includes("release") || lower.includes("cancel")) {
+    if (wantsFree) {
       if (!username) {
-        const reply = "you need to log in first";
+        const reply = "Necesitas iniciar sesión primero.";
         addVoiceMessage(reply, "gym");
         speak(reply);
-        voiceState = "WAITING";
-        voiceBtn.classList.remove("voice-listening");
+        bumpCommandSession();
         return;
       }
 
       const machine = findMachineByVoice(transcript);
       if (!machine) {
-        const reply = "sorry, I could not find that machine";
+        const reply = "Lo siento, no he encontrado esa máquina.";
         addVoiceMessage(reply, "gym");
         speak(reply);
       } else if (machine.status !== "occupied") {
-        const reply = machine.name + " is already free";
+        const reply = machine.name + " ya está libre.";
         addVoiceMessage(reply, "gym");
         speak(reply);
       } else {
         socket.emit("machine:free", { machineId: machine.id });
-        const reply = "okay " + machine.name + " is now free";
+        const reply = "De acuerdo. " + machine.name + " está ahora libre.";
         addVoiceMessage(reply, "gym");
         speak(reply);
       }
-      voiceState = "WAITING";
-      voiceBtn.classList.remove("voice-listening");
+      bumpCommandSession();
       return;
     }
 
-    const reply = "sorry, I didn't understand. Say 'book' or 'free' followed by a machine name";
+    if (wantsJoinQueue || wantsLeaveQueue) {
+      if (!username) {
+        const reply = "Necesitas iniciar sesión primero.";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+        bumpCommandSession();
+        return;
+      }
+
+      const machine = findMachineByVoice(transcript);
+      if (!machine) {
+        const reply = "Lo siento, no he encontrado esa máquina.";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      } else if (wantsJoinQueue) {
+        socket.emit("machine:queue:join", { machineId: machine.id });
+        const reply = "Vale. Te he añadido a la cola de " + machine.name + ".";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      } else {
+        socket.emit("machine:queue:leave", { machineId: machine.id });
+        const reply = "Hecho. Te he quitado de la cola de " + machine.name + ".";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+      }
+      bumpCommandSession();
+      return;
+    }
+
+    const reply =
+      "No lo he entendido. Di 'reservar' o 'liberar' seguido del nombre de una máquina, o 'ayuda'.";
     addVoiceMessage(reply, "gym");
     speak(reply);
-    voiceState = "WAITING";
-    voiceBtn.classList.remove("voice-listening");
+    bumpCommandSession();
   }
 }
 
@@ -561,13 +727,43 @@ function startVoice() {
 
   recognition = new SpeechRecognition();
   recognition.continuous = true;
-  recognition.interimResults = false;
-  recognition.lang = "en-US";
+  recognition.interimResults = true;
+  recognition.lang = "es-ES";
 
   recognition.onresult = (event) => {
+    if (isSpeaking) return;
+    let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
-      if (event.results[i].isFinal) {
-        handleVoiceResult(event.results[i][0].transcript);
+      const res = event.results[i];
+      const t = res[0]?.transcript || "";
+      if (res.isFinal) {
+        if (voiceState === "COMMAND") clearLiveUserLine();
+        handleFinalTranscript(t.trim());
+      } else {
+        interim += t;
+      }
+    }
+
+    const cleaned = interim.trim();
+    if (cleaned) {
+      const lower = cleaned.toLowerCase();
+      if (voiceState === "WAITING" && hasWakeWord(lower)) {
+        const now = Date.now();
+        if (now - lastWakeAtMs < WAKE_DEBOUNCE_MS) return;
+        lastWakeAtMs = now;
+
+        addVoiceMessage("Hola Gym", "user");
+        const reply = "Sí. ¿En qué puedo ayudarte?";
+        addVoiceMessage(reply, "gym");
+        speak(reply);
+        openCommandSession();
+        return;
+      }
+
+      if (voiceState === "COMMAND") {
+        const el = ensureLiveUserLine();
+        el.textContent = "Tú: " + cleaned;
+        bumpCommandSession();
       }
     }
   };
@@ -585,7 +781,7 @@ function startVoice() {
   recognition.start();
   voiceActive = true;
   voiceBtn.classList.add("voice-active");
-  showFeedback('Voice active — say "Hey Jim" to start');
+  showFeedback('Voz activada — di "Hola Gym" para empezar');
 }
 
 function stopVoice() {
@@ -595,10 +791,16 @@ function stopVoice() {
     recognition = null;
   }
   voiceState = "WAITING";
+  clearLiveUserLine();
+  clearLiveGymLine();
+  if (commandSessionTimer) {
+    clearInterval(commandSessionTimer);
+    commandSessionTimer = null;
+  }
   voiceBtn.classList.remove("voice-active", "voice-listening");
   voiceChat.classList.add("hidden");
   voiceLog.innerHTML = "";
-  showFeedback("Voice control off");
+  showFeedback("Control por voz desactivado");
 }
 
 if (voiceBtn) {

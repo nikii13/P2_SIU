@@ -582,6 +582,19 @@ button:disabled {
   opacity: 0.9;
 }
 
+.trackpad-actions {
+  margin-top: 14px;
+  pointer-events: auto;
+}
+
+.trackpad-back-btn {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 10000;
+  pointer-events: auto;
+}
+
 .trackpad-dot {
   position: absolute;
   width: 18px;
@@ -839,6 +852,19 @@ button:disabled {
   gap: 14px;
 }
 
+/* Floating gesture panel on /mobile */
+#gesture-panel.gesture-embed {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  width: min(360px, calc(100vw - 48px));
+  z-index: 1000;
+  margin: 0;
+  padding: 16px;
+  max-height: min(520px, calc(100vh - 170px));
+  overflow: auto;
+}
+
 .gesture-embed .gesture-overlay {
   padding: 0;
 }
@@ -850,6 +876,9 @@ button:disabled {
 
 .gesture-actions {
   margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .gesture-start-btn {
@@ -868,6 +897,18 @@ button:disabled {
   margin: 0;
   border-radius: 16px;
   height: 240px;
+  transition: height 0.22s ease, opacity 0.22s ease;
+}
+
+.gesture-embed .gesture-camera-wrap.collapsed {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.gesture-toggle-btn {
+  padding: 10px 14px;
+  border-radius: 12px;
 }
 
 .gesture-embed .gesture-status {
@@ -913,6 +954,40 @@ button:disabled {
   padding: 0;
   margin: 0;
   transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.floating-controls {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.floating-controls .voice-btn {
+  position: static;
+  bottom: auto;
+  right: auto;
+}
+
+.trackpad-btn {
+  background: #6b7280;
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.35);
+}
+
+.trackpad-btn:hover:not(:disabled) {
+  background: #4b5563;
+}
+
+.gesture-btn {
+  background: #0f172a;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.35);
+}
+
+.gesture-btn:hover:not(:disabled) {
+  background: #111c33;
 }
 
 .voice-btn.voice-active {
@@ -961,6 +1036,10 @@ button:disabled {
   font-size: 0.88rem;
   line-height: 1.4;
   max-width: 90%;
+}
+
+.voice-live {
+  opacity: 0.92;
 }
 
 .voice-user {

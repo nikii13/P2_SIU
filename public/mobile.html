@@ -16,11 +16,13 @@
     <div class="header-login" id="header-login">
       <input id="username-input" placeholder="Tu nombre">
       <button id="login-btn">Entrar</button>
+      <button id="trackpad-nav-btn" class="secondary-button" type="button">Trackpad</button>
     </div>
 
     <div class="header-user hidden" id="header-user">
       <span id="username-display"></span>
       <button id="logout-btn" class="logout-btn">Cerrar sesión</button>
+      <button id="trackpad-nav-btn-2" class="secondary-button" type="button">Trackpad</button>
     </div>
   </header>
 
@@ -38,16 +40,19 @@
       </div>
     </section>
 
-    <section class="filter-section filter-card gesture-embed">
+    <section class="filter-section filter-card gesture-embed hidden" id="gesture-panel">
       <div class="gesture-embedded" id="gesture-screen">
         <div class="gesture-overlay">
           <p class="gesture-label">Control por gestos</p>
           <h2 class="gesture-title">Navega con la mano</h2>
           <p class="gesture-instructions">
-            Mueve la mano hacia arriba o abajo frente a la cámara para hacer scroll en la pantalla del gimnasio.
+            Mueve la mano hacia arriba o abajo frente a la cámara para hacer scroll.
           </p>
           <div class="gesture-actions">
             <button id="gesture-start-btn" class="gesture-start-btn" type="button">Activar cámara</button>
+            <button id="gesture-toggle-camera-btn" class="secondary-button gesture-toggle-btn" type="button" disabled>
+              Ocultar cámara
+            </button>
           </div>
         </div>
 
@@ -76,7 +81,11 @@
     <div id="voice-log" class="voice-log"></div>
   </div>
 
-  <button id="voice-btn" class="voice-btn" title="Activar control por voz">🎙</button>
+  <div class="floating-controls">
+    <button id="gesture-fab" class="voice-btn gesture-btn" title="Control por gestos" type="button">✋</button>
+    <button id="trackpad-fab" class="voice-btn trackpad-btn" title="Abrir trackpad" type="button">🖱</button>
+    <button id="voice-btn" class="voice-btn" title="Activar control por voz" type="button">🎙</button>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js" crossorigin="anonymous"></script>

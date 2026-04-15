@@ -9,6 +9,8 @@ const statusDot = document.getElementById("status-dot");
 const statusText = document.getElementById("status-text");
 const arrowEl = document.getElementById("gesture-arrow");
 const startBtn = document.getElementById("gesture-start-btn");
+const toggleCameraBtn = document.getElementById("gesture-toggle-camera-btn");
+const cameraWrapEl = document.querySelector(".gesture-camera-wrap");
 const debugEl = document.getElementById("gesture-debug");
 let cameraStartInProgress = false;
 
@@ -157,7 +159,11 @@ function processGesture(landmarks) {
   lastEmitTime = now;
 
   const deltaY = currentDirection === "down" ? SCROLL_AMOUNT : -SCROLL_AMOUNT;
-  socket.emit("cursor:scroll", { deltaY });
+  // Only scroll locally on /mobile (do not control the main '/' screen).
+  window.scrollBy({
+    top: deltaY * 2.4,
+    behavior: "auto",
+  });
 
   showArrow(currentDirection);
   setStatus(
@@ -192,6 +198,19 @@ function setStartEnabled(enabled) {
   startBtn.disabled = !enabled;
   startBtn.style.display = "inline-flex";
   startBtn.textContent = enabled ? "Activar cámara" : "Activando...";
+}
+
+function setToggleCameraEnabled(enabled) {
+  if (!toggleCameraBtn) return;
+  toggleCameraBtn.disabled = !enabled;
+}
+
+function setCameraCollapsed(collapsed) {
+  if (!cameraWrapEl) return;
+  cameraWrapEl.classList.toggle("collapsed", Boolean(collapsed));
+  if (toggleCameraBtn) {
+    toggleCameraBtn.textContent = collapsed ? "Mostrar cámara" : "Ocultar cámara";
+  }
 }
 
 function createHandsOrNull() {
@@ -286,6 +305,7 @@ async function startCamera() {
     await videoEl.play();
 
     setStatus("waiting", "Buscando mano...");
+    setToggleCameraEnabled(true);
 
     // Feed frames to MediaPipe
     async function sendFrame() {
@@ -347,6 +367,14 @@ if (statusDot && statusText) {
 }
 if (startBtn) {
   startBtn.addEventListener("click", () => startCamera());
+}
+
+setToggleCameraEnabled(false);
+if (toggleCameraBtn) {
+  toggleCameraBtn.addEventListener("click", () => {
+    const collapsed = cameraWrapEl ? cameraWrapEl.classList.contains("collapsed") : false;
+    setCameraCollapsed(!collapsed);
+  });
 }
 
 if (!isLikelySecureForCamera()) {
