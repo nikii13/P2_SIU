@@ -38,6 +38,34 @@
       </div>
     </section>
 
+    <section class="filter-section filter-card gesture-embed">
+      <div class="gesture-embedded" id="gesture-screen">
+        <div class="gesture-overlay">
+          <p class="gesture-label">Control por gestos</p>
+          <h2 class="gesture-title">Navega con la mano</h2>
+          <p class="gesture-instructions">
+            Mueve la mano hacia arriba o abajo frente a la cámara para hacer scroll en la pantalla del gimnasio.
+          </p>
+          <div class="gesture-actions">
+            <button id="gesture-start-btn" class="gesture-start-btn" type="button">Activar cámara</button>
+          </div>
+        </div>
+
+        <div class="gesture-camera-wrap">
+          <video id="camera-feed" autoplay playsinline></video>
+          <canvas id="hand-canvas"></canvas>
+        </div>
+
+        <div class="gesture-status" id="gesture-status">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">Cámara desactivada</span>
+        </div>
+        <pre id="gesture-debug" class="gesture-debug hidden"></pre>
+
+        <div class="gesture-arrow" id="gesture-arrow"></div>
+      </div>
+    </section>
+
     <section>
       <div id="feedback-message" class="feedback-message hidden"></div>
       <div id="mobile-machines-container" class="machines-list"></div>
@@ -51,6 +79,9 @@
   <button id="voice-btn" class="voice-btn" title="Activar control por voz">🎙</button>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js" crossorigin="anonymous"></script>
   <script src="/mobile.js"></script>
+  <script src="/gesture.js"></script>
 </body>
 </html>

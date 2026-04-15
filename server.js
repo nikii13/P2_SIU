@@ -1,15 +1,27 @@
 const express = require("express");
 const http = require("http");
+const https = require("https");
 const { Server } = require("socket.io");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = 3000;
+const HTTPS_PORT = Number(process.env.HTTPS_PORT || 3443);
 
 const users = {};
+const socketToUsername = users;
+
+function nowMs() {
+  return Date.now();
+}
+
+function safeName(name) {
+  return String(name || "").trim();
+}
 
 let machines = [
   {
@@ -234,6 +246,122 @@ let machines = [
   }
 ];
 
+// ===== QUEUES (per machine) =====
+// Each entry: { username, socketId, priorityRemaining, enqueuedAtMs }
+const machineQueues = new Map(); // machineId -> entry[]
+// machineId -> { toSocketId, toUsername, expiresAtMs, timer }
+const machineOffers = new Map();
+
+function getMachine(machineId) {
+  const id = Number(machineId);
+  return machines.find((m) => m.id === id) || null;
+}
+
+function getQueue(machineId) {
+  const id = Number(machineId);
+  if (!machineQueues.has(id)) machineQueues.set(id, []);
+  return machineQueues.get(id);
+}
+
+function removeFromAllQueuesBySocket(socketId) {
+  for (const [mid, q] of machineQueues.entries()) {
+    const next = q.filter((e) => e.socketId !== socketId);
+    if (next.length !== q.length) machineQueues.set(mid, next);
+  }
+}
+
+function removeFromMachineQueue(machineId, socketId) {
+  const q = getQueue(machineId);
+  const next = q.filter((e) => e.socketId !== socketId);
+  machineQueues.set(Number(machineId), next);
+}
+
+function userCurrentRemaining(username) {
+  const name = safeName(username);
+  if (!name) return Number.POSITIVE_INFINITY;
+  let best = Number.POSITIVE_INFINITY;
+  for (const m of machines) {
+    if (m.status === "occupied" && safeName(m.reservedBy) === name) {
+      best = Math.min(best, Number(m.remainingTime) || 0);
+    }
+  }
+  return best;
+}
+
+function computeAndSortQueue(machineId) {
+  const id = Number(machineId);
+  const q = getQueue(id);
+  // recompute priorityRemaining each time (as remaining times change)
+  for (const entry of q) {
+    entry.priorityRemaining = userCurrentRemaining(entry.username);
+  }
+  q.sort((a, b) => {
+    const ar = Number.isFinite(a.priorityRemaining) ? a.priorityRemaining : 1e9;
+    const br = Number.isFinite(b.priorityRemaining) ? b.priorityRemaining : 1e9;
+    if (ar !== br) return ar - br;
+    return a.enqueuedAtMs - b.enqueuedAtMs;
+  });
+  machineQueues.set(id, q);
+  return q;
+}
+
+function clearOffer(machineId) {
+  const id = Number(machineId);
+  const offer = machineOffers.get(id);
+  if (offer?.timer) clearTimeout(offer.timer);
+  machineOffers.delete(id);
+}
+
+function broadcastMachinesUpdate(ioInstance) {
+  const payload = machines.map((m) => {
+    const q = getQueue(m.id);
+    const offer = machineOffers.get(m.id);
+    return {
+      ...m,
+      waitQueueLength: q.length,
+      waitQueue: q.map((e) => e.username),
+      offeredTo: offer ? offer.toUsername : null
+    };
+  });
+  ioInstance.emit("machines:update", payload);
+}
+
+function maybeOfferNext(ioInstance, machineId) {
+  const m = getMachine(machineId);
+  if (!m) return;
+  if (m.status !== "free") return;
+
+  const q = computeAndSortQueue(machineId);
+  if (q.length === 0) return;
+  const existingOffer = machineOffers.get(Number(machineId));
+  if (existingOffer) return;
+
+  const top = q[0];
+  const expiresAtMs = nowMs() + 20000;
+
+  const timer = setTimeout(() => {
+    // Expired: remove top entry and offer next
+    removeFromMachineQueue(machineId, top.socketId);
+    clearOffer(machineId);
+    broadcastMachinesUpdate(ioInstance);
+    maybeOfferNext(ioInstance, machineId);
+  }, 20000);
+
+  machineOffers.set(Number(machineId), {
+    toSocketId: top.socketId,
+    toUsername: top.username,
+    expiresAtMs,
+    timer
+  });
+
+  ioInstance.to(top.socketId).emit("machine:offer", {
+    machineId: Number(machineId),
+    machineName: m.name,
+    expiresAtMs
+  });
+  broadcastMachinesUpdate(ioInstance);
+}
+
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
@@ -255,16 +383,26 @@ app.get("/gesture", (req, res) => {
 io.on("connection", (socket) => {
   console.log("Cliente conectado:", socket.id);
 
-  socket.emit("machines:update", machines);
+  // Always include queue metadata in updates.
+  socket.emit(
+    "machines:update",
+    machines.map((m) => ({
+      ...m,
+      waitQueueLength: getQueue(m.id).length,
+      waitQueue: getQueue(m.id).map((e) => e.username),
+      offeredTo: machineOffers.get(m.id)?.toUsername || null
+    }))
+  );
 
   socket.on("user:login", (username) => {
-    const safeUsername = String(username || "").trim();
+    const safeUsername = safeName(username);
     if (!safeUsername) return;
     users[socket.id] = safeUsername;
   });
 
   socket.on("user:logout", () => {
     delete users[socket.id];
+    removeFromAllQueuesBySocket(socket.id);
   });
 
   socket.on("machine:reserve", ({ machineId, duration }) => {
@@ -286,7 +424,11 @@ io.on("connection", (socket) => {
       return machine;
     });
 
-    io.emit("machines:update", machines);
+    // If someone reserves, clear offers/queue for that machine (reservation is now taken).
+    clearOffer(parsedMachineId);
+    // remove reserver from queue too if present
+    removeFromMachineQueue(parsedMachineId, socket.id);
+    broadcastMachinesUpdate(io);
   });
 
   socket.on("machine:free", ({ machineId }) => {
@@ -297,7 +439,90 @@ io.on("connection", (socket) => {
       }
       return machine;
     });
-    io.emit("machines:update", machines);
+    clearOffer(parsedId);
+    broadcastMachinesUpdate(io);
+    maybeOfferNext(io, parsedId);
+  });
+
+  socket.on("machine:queue:join", ({ machineId }) => {
+    const parsedId = Number(machineId);
+    const username = users[socket.id] || null;
+    const machine = getMachine(parsedId);
+    if (!machine || !username) return;
+    if (machine.status !== "occupied") return;
+
+    const q = getQueue(parsedId);
+    const already = q.some((e) => e.socketId === socket.id);
+    if (already) {
+      computeAndSortQueue(parsedId);
+      broadcastMachinesUpdate(io);
+      return;
+    }
+
+    q.push({
+      username,
+      socketId: socket.id,
+      priorityRemaining: userCurrentRemaining(username),
+      enqueuedAtMs: nowMs()
+    });
+    machineQueues.set(parsedId, q);
+    computeAndSortQueue(parsedId);
+    broadcastMachinesUpdate(io);
+  });
+
+  socket.on("machine:queue:leave", ({ machineId }) => {
+    const parsedId = Number(machineId);
+    removeFromMachineQueue(parsedId, socket.id);
+
+    const offer = machineOffers.get(parsedId);
+    if (offer && offer.toSocketId === socket.id) {
+      clearOffer(parsedId);
+      maybeOfferNext(io, parsedId);
+    }
+    broadcastMachinesUpdate(io);
+  });
+
+  socket.on("machine:offer:respond", ({ machineId, accept, duration }) => {
+    const parsedId = Number(machineId);
+    const offer = machineOffers.get(parsedId);
+    if (!offer) return;
+    if (offer.toSocketId !== socket.id) return;
+
+    const accepted = Boolean(accept);
+    if (!accepted) {
+      // Declined: remove from queue and offer next
+      removeFromMachineQueue(parsedId, socket.id);
+      clearOffer(parsedId);
+      broadcastMachinesUpdate(io);
+      maybeOfferNext(io, parsedId);
+      return;
+    }
+
+    const parsedDuration = Number(duration);
+    const allowedDurations = [5, 10, 15, 20, 25, 30];
+    if (!allowedDurations.includes(parsedDuration)) return;
+
+    // Reserve if still free.
+    const username = users[socket.id] || "Anónimo";
+    const machine = getMachine(parsedId);
+    if (!machine || machine.status !== "free") {
+      // Machine got taken; remove and continue.
+      removeFromMachineQueue(parsedId, socket.id);
+      clearOffer(parsedId);
+      broadcastMachinesUpdate(io);
+      return;
+    }
+
+    machines = machines.map((m) => {
+      if (m.id === parsedId && m.status === "free") {
+        return { ...m, status: "occupied", remainingTime: parsedDuration, reservedBy: username };
+      }
+      return m;
+    });
+
+    removeFromMachineQueue(parsedId, socket.id);
+    clearOffer(parsedId);
+    broadcastMachinesUpdate(io);
   });
 
   socket.on("cursor:update", ({ xRatio, yRatio }) => {
@@ -321,11 +546,13 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     delete users[socket.id];
+    removeFromAllQueuesBySocket(socket.id);
   });
 });
 
 setInterval(() => {
   let hasChanges = false;
+  const freed = [];
 
   machines = machines.map((machine) => {
     if (machine.status === "occupied" && machine.remainingTime > 0) {
@@ -333,6 +560,7 @@ setInterval(() => {
       const updatedRemainingTime = machine.remainingTime - 1;
 
       if (updatedRemainingTime <= 0) {
+        freed.push(machine.id);
         return {
           ...machine,
           status: "free",
@@ -351,10 +579,40 @@ setInterval(() => {
   });
 
   if (hasChanges) {
-    io.emit("machines:update", machines);
+    // recompute queue priorities and then broadcast
+    for (const m of machines) computeAndSortQueue(m.id);
+    broadcastMachinesUpdate(io);
+    for (const mid of freed) {
+      clearOffer(mid);
+      maybeOfferNext(io, mid);
+    }
   }
 }, 60000);
 
 server.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
+
+// Optional HTTPS server for mobile camera access.
+// iOS Safari (and most browsers) require secure context (HTTPS) for getUserMedia() on non-localhost hosts.
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+
+if (SSL_KEY_PATH && SSL_CERT_PATH) {
+  try {
+    const key = fs.readFileSync(SSL_KEY_PATH);
+    const cert = fs.readFileSync(SSL_CERT_PATH);
+
+    const httpsServer = https.createServer({ key, cert }, app);
+    const httpsIo = new Server(httpsServer);
+
+    // Mirror the same socket handlers on HTTPS.
+    httpsIo.on("connection", (socket) => io.emit("connection", socket));
+
+    httpsServer.listen(HTTPS_PORT, () => {
+      console.log(`Servidor HTTPS corriendo en https://localhost:${HTTPS_PORT}`);
+    });
+  } catch (e) {
+    console.error("No se pudo iniciar HTTPS:", e.message || e);
+  }
+}

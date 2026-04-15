@@ -16,6 +16,32 @@ let allMachines = [];
 let selectedMachineId = null;
 let selectedDurations = {};
 
+let activeOffer = null; // { machineId, machineName, expiresAtMs }
+let offerTimer = null;
+
+const USERNAME_STORAGE_KEY = "gym_username";
+
+function setLoggedInUser(nextUsername) {
+  username = nextUsername;
+  if (username) {
+    socket.emit("user:login", username);
+    headerLogin.classList.add("hidden");
+    headerUser.classList.remove("hidden");
+    usernameDisplay.textContent = username;
+    try {
+      localStorage.setItem(USERNAME_STORAGE_KEY, username);
+    } catch (_) {}
+  } else {
+    socket.emit("user:logout");
+    headerUser.classList.add("hidden");
+    headerLogin.classList.remove("hidden");
+    usernameDisplay.textContent = "";
+    try {
+      localStorage.removeItem(USERNAME_STORAGE_KEY);
+    } catch (_) {}
+  }
+}
+
 loginBtn.addEventListener("click", () => {
   const value = usernameInput.value.trim();
 
@@ -24,27 +50,15 @@ loginBtn.addEventListener("click", () => {
     return;
   }
 
-  username = value;
-
-  socket.emit("user:login", username);
-
-  headerLogin.classList.add("hidden");
-  headerUser.classList.remove("hidden");
-  usernameDisplay.textContent = username;
+  setLoggedInUser(value);
 
   showFeedback(`Bienvenido ${username}`);
 });
 
 logoutBtn.addEventListener("click", () => {
-  socket.emit("user:logout");
-
-  username = null;
+  setLoggedInUser(null);
   selectedMachineId = null;
 
-  headerUser.classList.add("hidden");
-  headerLogin.classList.remove("hidden");
-
-  usernameDisplay.textContent = "";
   usernameInput.value = "";
 
   renderMachines(allMachines);
@@ -75,6 +89,90 @@ function getSelectedDuration(machineId) {
   return selectedDurations[machineId] || 20;
 }
 
+function getQueueInfo(machine) {
+  const list = Array.isArray(machine.waitQueue) ? machine.waitQueue : [];
+  const length = Number(machine.waitQueueLength) || list.length || 0;
+  const pos = username ? list.findIndex((u) => u === username) : -1;
+  return { list, length, pos };
+}
+
+function ensureOfferUi() {
+  let el = document.getElementById("offer-toast");
+  if (el) return el;
+
+  el = document.createElement("div");
+  el.id = "offer-toast";
+  el.className = "offer-toast hidden";
+  el.innerHTML = `
+    <div class="offer-title" id="offer-title"></div>
+    <div class="offer-subtitle" id="offer-subtitle"></div>
+    <div class="offer-actions">
+      <button id="offer-accept-btn" type="button">Reserve</button>
+      <button id="offer-decline-btn" class="secondary-button" type="button">Skip</button>
+    </div>
+  `;
+  document.body.appendChild(el);
+
+  const acceptBtn = document.getElementById("offer-accept-btn");
+  const declineBtn = document.getElementById("offer-decline-btn");
+
+  acceptBtn.addEventListener("click", () => {
+    if (!activeOffer) return;
+    const duration = getSelectedDuration(activeOffer.machineId);
+    socket.emit("machine:offer:respond", {
+      machineId: activeOffer.machineId,
+      accept: true,
+      duration
+    });
+    hideOfferUi();
+    showFeedback(`Reserva aceptada (${duration} min).`);
+  });
+
+  declineBtn.addEventListener("click", () => {
+    if (!activeOffer) return;
+    socket.emit("machine:offer:respond", {
+      machineId: activeOffer.machineId,
+      accept: false
+    });
+    hideOfferUi();
+    showFeedback("Has pasado tu turno.");
+  });
+
+  return el;
+}
+
+function hideOfferUi() {
+  const el = document.getElementById("offer-toast");
+  if (el) el.classList.add("hidden");
+  activeOffer = null;
+  if (offerTimer) {
+    clearInterval(offerTimer);
+    offerTimer = null;
+  }
+}
+
+function showOfferUi({ machineId, machineName, expiresAtMs }) {
+  const el = ensureOfferUi();
+  activeOffer = { machineId, machineName, expiresAtMs };
+
+  const title = document.getElementById("offer-title");
+  const subtitle = document.getElementById("offer-subtitle");
+
+  title.textContent = `${machineName} is free`;
+  const updateCountdown = () => {
+    const leftMs = Math.max(0, Number(expiresAtMs) - Date.now());
+    const leftSec = Math.ceil(leftMs / 1000);
+    subtitle.textContent = `Do you want to reserve? (${leftSec}s)`;
+    if (leftMs <= 0) hideOfferUi();
+  };
+
+  updateCountdown();
+  el.classList.remove("hidden");
+
+  if (offerTimer) clearInterval(offerTimer);
+  offerTimer = setInterval(updateCountdown, 250);
+}
+
 function renderMachines(machines) {
   if (!container || !filterSelect) return;
 
@@ -101,6 +199,8 @@ function renderMachines(machines) {
     const isSelected = machine.id === selectedMachineId;
     const isFree = machine.status === "free";
     const currentDuration = getSelectedDuration(machine.id);
+    const queueInfo = getQueueInfo(machine);
+    const inQueue = queueInfo.pos >= 0;
 
     card.className = `machine-card visual-card ${machine.status} ${isSelected ? "selected" : ""}`;
 
@@ -142,6 +242,27 @@ function renderMachines(machines) {
         }
 
         ${
+          machine.status === "occupied"
+            ? `
+              <div class="detail-box reserved-by-box">
+                <span class="detail-label">Queue</span>
+                <strong>
+                  ${queueInfo.length} waiting${inQueue ? ` · You: #${queueInfo.pos + 1}` : ""}
+                </strong>
+              </div>
+              <div class="inline-actions">
+                <button class="queue-join-btn" data-queue-join-id="${machine.id}" ${!username || inQueue ? "disabled" : ""}>
+                  Join queue
+                </button>
+                <button class="secondary-button queue-leave-btn" data-queue-leave-id="${machine.id}" ${!username || !inQueue ? "disabled" : ""}>
+                  Leave queue
+                </button>
+              </div>
+            `
+            : ""
+        }
+
+        ${
           isSelected
             ? `
               <div class="duration-picker">
@@ -175,6 +296,30 @@ function renderMachines(machines) {
     `;
 
     container.appendChild(card);
+  });
+
+  document.querySelectorAll("button[data-queue-join-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!username) {
+        showFeedback("Debes iniciar sesión primero");
+        return;
+      }
+      const machineId = Number(button.dataset.queueJoinId);
+      socket.emit("machine:queue:join", { machineId });
+      showFeedback("Te has unido a la cola.");
+    });
+  });
+
+  document.querySelectorAll("button[data-queue-leave-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!username) {
+        showFeedback("Debes iniciar sesión primero");
+        return;
+      }
+      const machineId = Number(button.dataset.queueLeaveId);
+      socket.emit("machine:queue:leave", { machineId });
+      showFeedback("Has salido de la cola.");
+    });
   });
 
   document.querySelectorAll("button[data-id]").forEach((button) => {
@@ -241,7 +386,22 @@ socket.on("machines:update", (machines) => {
     selectedMachineId = null;
   }
 
+  if (activeOffer) {
+    const offeredMachine = allMachines.find((m) => m.id === activeOffer.machineId);
+    if (!offeredMachine || offeredMachine.status !== "free") {
+      hideOfferUi();
+    }
+  }
+
   renderMachines(allMachines);
+});
+
+socket.on("machine:offer", ({ machineId, machineName, expiresAtMs }) => {
+  // Only sent to the top-of-queue user by the server.
+  showOfferUi({ machineId, machineName, expiresAtMs });
+  const text = `${machineName} is free. Do you want to reserve?`;
+  addVoiceMessage(text, "gym");
+  speak(text);
 });
 
 if (filterSelect) {
@@ -250,6 +410,15 @@ if (filterSelect) {
     renderMachines(allMachines);
   });
 }
+
+// Restore login after refresh.
+try {
+  const saved = localStorage.getItem(USERNAME_STORAGE_KEY);
+  if (saved && saved.trim()) {
+    setLoggedInUser(saved.trim());
+    showFeedback(`Bienvenido ${saved.trim()}`);
+  }
+} catch (_) {}
 
 // ===== VOICE CONTROL =====
 
@@ -439,4 +608,5 @@ if (voiceBtn) {
   });
 }
 
-if (SpeechRecognition) startVoice();
+// Don't auto-start voice on load.
+// This prevents the mic permission prompt from appearing before the camera prompt.
